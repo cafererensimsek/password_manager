@@ -38,12 +38,6 @@ async fn main() -> Result<(), Error> {
         panic!("You must supply exactly one operation type!")
     }
 
-    if (arguments.write || arguments.delete || arguments.change)
-        && (arguments.username.is_none() || arguments.password.is_none())
-    {
-        panic!("You must specify the username and/or the password for this operation!")
-    }
-
     let (client, connection) = tokio_postgres::connect(
         "host=localhost user=postgres password=postgres dbname=passwords port=5433",
         NoTls,
@@ -57,6 +51,11 @@ async fn main() -> Result<(), Error> {
     });
 
     if arguments.write {
+        if arguments.username.is_none() || arguments.password.is_none() || arguments.site.is_empty()
+        {
+            panic!("You must specify the sitename, username and the password for this operation!")
+        }
+
         client
             .query(
                 "insert into passwords (site, password, username) values ($1, $2, $3)",
@@ -66,6 +65,10 @@ async fn main() -> Result<(), Error> {
     }
 
     if arguments.delete {
+        if arguments.username.is_none() || arguments.site.is_empty() {
+            panic!("You must specify the site and the username for this operation!")
+        }
+
         client
             .query(
                 "delete from passwords where site = $1 and username = $2",
@@ -75,15 +78,23 @@ async fn main() -> Result<(), Error> {
     }
 
     if arguments.change {
+        if arguments.username.is_none() || arguments.site.is_empty() {
+            panic!("You must specify the username for this operation!")
+        }
+
         client
             .query(
-                "update passwords set username = $2 , password = $3 where site = $1 and username = $2",
+                "update passwords set password = $3 where site = $1 and username = $2",
                 &[&arguments.site, &arguments.username, &arguments.password],
             )
             .await?;
     }
 
     if arguments.read {
+        if arguments.username.is_none() || arguments.site.is_empty() {
+            panic!("You must specify the site and the username for this operation!")
+        }
+
         let row = client
             .query(
                 "select password from passwords where site = $1 and username = $2",
